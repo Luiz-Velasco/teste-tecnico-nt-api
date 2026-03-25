@@ -1,0 +1,99 @@
+name: Java API Tests - Dog API
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: java-dog-api-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  java-api-tests:
+    name: Java Tests (${{ matrix.os }} | jdk${{ matrix.java }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        java: [17, 21]
+
+    defaults:
+      run:
+        working-directory: java-dog-api-tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Make mvnw executable (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: chmod +x mvnw
+
+      - name: Run tests (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: ./mvnw -B clean test
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        run: .\mvnw.cmd -B clean test
+
+      - name: Publish Job Summary
+        if: always()
+        shell: bash
+        working-directory: java-dog-api-tests
+        run: |
+          REPORT_DIR="target/surefire-reports"
+          SUMMARY="## Test Results — ${{ matrix.os }} | JDK ${{ matrix.java }}\n\n"
+
+          if [ ! -d "$REPORT_DIR" ]; then
+            SUMMARY+="No surefire-reports directory found.\n"
+          else
+            PASSED=0
+            FAILED=0
+            ERRORS=0
+            SKIPPED=0
+
+            for xml in $REPORT_DIR/TEST-*.xml; do
+              [ -f "$xml" ] || continue
+              PASSED=$((PASSED + $(grep -oP '(?<=tests=")[0-9]+' "$xml" | head -1) - $(grep -oP '(?<=failures=")[0-9]+' "$xml" | head -1) - $(grep -oP '(?<=errors=")[0-9]+' "$xml" | head -1) - $(grep -oP '(?<=skipped=")[0-9]+' "$xml" | head -1)))
+              FAILED=$((FAILED + $(grep -oP '(?<=failures=")[0-9]+' "$xml" | head -1)))
+              ERRORS=$((ERRORS + $(grep -oP '(?<=errors=")[0-9]+' "$xml" | head -1)))
+              SKIPPED=$((SKIPPED + $(grep -oP '(?<=skipped=")[0-9]+' "$xml" | head -1)))
+            done
+
+            TOTAL=$((PASSED + FAILED + ERRORS + SKIPPED))
+            if [ $((FAILED + ERRORS)) -eq 0 ]; then
+              STATUS="✅ All tests passed"
+            else
+              STATUS="❌ Failures detected"
+            fi
+
+            SUMMARY+="| Metric | Count |\n|--------|-------|\n"
+            SUMMARY+="| Total  | $TOTAL |\n"
+            SUMMARY+="| ✅ Passed | $PASSED |\n"
+            SUMMARY+="| ❌ Failed | $FAILED |\n"
+            SUMMARY+="| 🔴 Errors | $ERRORS |\n"
+            SUMMARY+="| ⏭️ Skipped | $SKIPPED |\n\n"
+            SUMMARY+="**$STATUS**\n"
+          fi
+
+          printf "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-${{ matrix.os }}-jdk${{ matrix.java }}
+          path: java-dog-api-tests/target/surefire-reports/

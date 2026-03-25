@@ -1,0 +1,8 @@
+target/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Maven Wrapper JAR is downloaded automatically — do not commit it
+.mvn/wrapper/maven-wrapper.jar
