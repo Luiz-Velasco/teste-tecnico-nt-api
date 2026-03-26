@@ -25,12 +25,13 @@
 set -e
 
 MAVEN_WRAPPER_PROPERTIES_URL=".mvn/wrapper/maven-wrapper.properties"
+MAVEN_PROJECTBASEDIR="$(cd "$(dirname "$0")" && pwd)"
 
 DOWNLOAD_URL=
 WRAPPER_JAR=".mvn/wrapper/maven-wrapper.jar"
 
 if [ -f "$WRAPPER_JAR" ]; then
-  exec java -classpath "$WRAPPER_JAR" org.apache.maven.wrapper.MavenWrapperMain "$@"
+  exec java "-Dmaven.multiModuleProjectDirectory=$MAVEN_PROJECTBASEDIR" -classpath "$WRAPPER_JAR" org.apache.maven.wrapper.MavenWrapperMain "$@"
 fi
 
 if [ -z "$MAVEN_WRAPPER_PROPERTIES_URL" ]; then
@@ -50,4 +51,4 @@ else
   exit 1
 fi
 
-exec java -classpath "$WRAPPER_JAR" org.apache.maven.wrapper.MavenWrapperMain "$@"
+exec java "-Dmaven.multiModuleProjectDirectory=$MAVEN_PROJECTBASEDIR" -classpath "$WRAPPER_JAR" org.apache.maven.wrapper.MavenWrapperMain "$@"
